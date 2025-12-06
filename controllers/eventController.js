@@ -7,26 +7,68 @@ exports.createEvent = (req, res) => {
   const { title, description, location, start_datetime, end_datetime } = req.body;
   const creatorId = req.userId;
 
+  // Create event
   db.query(
     `INSERT INTO events (title, description, location, start_datetime, end_datetime, created_by)
      VALUES (?, ?, ?, ?, ?, ?)`,
     [title, description, location, start_datetime, end_datetime, creatorId],
     (err, result) => {
-      if (err) return res.status(500).send(err);
+      if (err) return res.status(500).json({ error: err });
 
       const eventId = result.insertId;
 
-      // Mark creator as organizer
+      // Mark user as ORGANIZER in event_attendees
       db.query(
         `INSERT INTO event_attendees (event_id, user_id, role, status, invited_by)
          VALUES (?, ?, 'organizer', 'going', ?)`,
         [eventId, creatorId, creatorId]
       );
 
-      res.json({ message: "Event created", eventId });
+      // Update user.role globally
+      db.query(
+        `UPDATE users SET role = 'Organizer' WHERE id = ?`,
+        [creatorId]
+      );
+
+      res.json({ message: "Event created successfully", eventId });
     }
   );
 };
+
+
+
+// ---------------------
+// ADD ATTENDEE
+// ---------------------
+exports.addAttendee = (req, res) => {
+  const organizerId = req.userId;
+  const { eventId } = req.params;
+  const { attendeeId } = req.body;
+
+  // Check organizer permission
+  db.query(
+    `SELECT * FROM event_attendees 
+     WHERE event_id = ? AND user_id = ? AND role = 'organizer'`,
+    [eventId, organizerId],
+    (err, result) => {
+      if (err) return res.status(500).send(err);
+      if (result.length === 0)
+        return res.status(403).json({ message: "Only organizer can add attendees" });
+
+      // Insert attendee
+      db.query(
+        `INSERT INTO event_attendees (event_id, user_id, role, status, invited_by)
+         VALUES (?, ?, 'attendee', 'invited', ?)`,
+        [eventId, attendeeId, organizerId],
+        (err2) => {
+          if (err2) return res.status(500).send(err2);
+          res.json({ message: "Attendee added successfully" });
+        }
+      );
+    }
+  );
+};
+
 
 // ---------------------
 // GET MY EVENTS
@@ -44,6 +86,7 @@ exports.getMyEvents = (req, res) => {
     }
   );
 };
+
 
 // ---------------------
 // DELETE EVENT
@@ -66,6 +109,7 @@ exports.deleteEvent = (req, res) => {
   );
 };
 
+
 // ---------------------
 // GET EVENT BY ID
 // ---------------------
@@ -84,6 +128,7 @@ exports.getEventById = (req, res) => {
     }
   );
 };
+
 
 // ---------------------
 // UPDATE EVENT (ONLY ORGANIZER)
