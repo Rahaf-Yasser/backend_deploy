@@ -4,7 +4,7 @@ const db = require("./db");
 
 const app = express();
 app.use(cors({
-  origin: 'http://localhost:4200',
+  origin: 'http://localhost',
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   credentials: true
 }));
@@ -19,4 +19,7 @@ app.use("/tasks", require("./routes/tasks"));
 app.use("/search", require("./routes/search"));
 app.use("/invitations", require("./routes/invitations"));
 
-app.listen(3000, () => console.log("Server running on port 3000"));
+app.listen(process.env.PORT || 3000, "0.0.0.0", () => {
+    console.log("Backend running");
+});
+
